@@ -17,7 +17,7 @@ CREATE TABLE Conta (
     IdConta int IDENTITY(1,1) PRIMARY KEY,
     Saldo DECIMAL(10,2)
 );
-
+ 
 --  Tabela Titular_Conta (IdConta, IdCliente)
 CREATE TABLE Titular_Conta (
     IdConta int,
@@ -53,7 +53,7 @@ ALTER TABLE Cliente ADD Tipo CHAR(1) DEFAULT 'I' CHECK (tipo IN ('I','E'))
 --      Inserir um campo na tabela conta, chamado definicao_conta para definir conta a P de prazo, N de normal e C de certificados do tesouro.
 ALTER TABLE Conta ADD Definicao_conta CHAR(1) DEFAULT 'N' CHECK (definicao_conta IN ('P','N','C'))
 
--- 1.2.3.4 Carregamento de Dados
+-- 1.2.4 Carregamento de Dados
 --      Aceder ao mockaroo (gerador de dados aleatórios) e gerar scripts sql para car- regar com dados as tabelas criadas tendo em conta as restrições de integridade de domínio.
 --      Inserir 10 Clientes
 insert into Cliente (Nome, Tipo) values ('Ody', 'E');
@@ -102,3 +102,27 @@ insert into Movimento (IdConta, Data, TipoMovimento, Valor) values (5, '2023-06-
 insert into Movimento (IdConta, Data, TipoMovimento, Valor) values (2, '2024-01-24', 'C', 783.98);
 insert into Movimento (IdConta, Data, TipoMovimento, Valor) values (1, '2023-08-10', 'C', 7821.51);
 insert into Movimento (IdConta, Data, TipoMovimento, Valor) values (10, '2023-05-25', 'D', 2984.78);
+
+-- 1.2.5 Instrução
+--       Apresente os movimentos a crédito entre 250€ e 500€ do mais recente ao mais antigo.
+SELECT * FROM Movimento WHERE TipoMovimento = 'C' AND Valor BETWEEN 250 AND 500 ORDER BY Data DESC;
+
+-- 1.2.6 Instrução
+--       Apresente os clientes com movimentos a débito superiores a 1000€.
+SELECT * FROM Movimento WHERE TipoMovimento = 'D' AND Valor > 1000;
+
+-- 1.2.7 Instrução
+--     O banco precisa saber quais as contas com mais de 5 movimentos de crédito, na listagem apresente com as colunas NumeroDeMovimentos, totalMovimentos, idConta, nome, tipo de cliente, estado da conta e saldo.
+--    Crie uma vista chamada movimentosSuperior5, tendo em conta o seguinte:
+--      - NumeroDeMovimentos são o total de movimento de crédito
+--      - TotaMovimentos é o somatório dos movimentos de crédito
+--      - Saldo é o saldo atual da conta
+CREATE VIEW movimentosSuperior5 AS
+SELECT COUNT(m.IdMovimento) AS NumeroDeMovimentos, SUM(m.Valor) AS TotalMovimentos, co.IdConta, cl.Nome, cl.Tipo, co.Tipo_conta, co.Saldo 
+FROM Movimento m 
+JOIN Conta co ON m.IdConta = co.IdConta 
+JOIN Titular_Conta tc ON co.IdConta = tc.IdConta
+JOIN Cliente cl ON tc.IdCliente = cl.IdCliente
+WHERE m.TipoMovimento = 'C' 
+GROUP BY co.IdConta, cl.Nome, cl.Tipo, co.Tipo_conta, co.Saldo
+HAVING COUNT(m.IdMovimento) > 5;
