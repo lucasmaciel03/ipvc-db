@@ -126,3 +126,38 @@ JOIN Cliente cl ON tc.IdCliente = cl.IdCliente
 WHERE m.TipoMovimento = 'C' 
 GROUP BY co.IdConta, cl.Nome, cl.Tipo, co.Tipo_conta, co.Saldo
 HAVING COUNT(m.IdMovimento) > 5;
+
+-- 1.2.8 Instrução
+-- Crie uma vista chamada resumoContas que retorna o número de contas a prazo, certificados e normais e o somatório do saldo e o saldo mais alto
+CREATE VIEW resumoContas AS
+SELECT COUNT(IdConta) AS NumeroDeContas, 
+    SUM(CASE WHEN Definicao_conta = 'P' THEN 1 ELSE 0 END) AS ContasPrazo, 
+    SUM(CASE WHEN Definicao_conta = 'C' THEN 1 ELSE 0 END) AS ContasCertificados, 
+    SUM(CASE WHEN Definicao_conta = 'N' THEN 1 ELSE 0 END) AS ContasNormais, 
+    SUM(Saldo) AS SaldoTotal, 
+    MAX(Saldo) AS SaldoMaisAlto
+FROM Conta;
+
+-- 1.3 Procedimentos SQL
+
+-- 1.3.1 Procedimento 1
+--      Crie um procedimento para inserir, atualizar ou remover um movimento
+CREATE PROCEDURE MovimentoIU
+    @IdMovimento int = NULL,
+    @IdConta int,
+    @Data DATE,
+    @TipoMovimento CHAR(1),
+    @Valor DECIMAL(10,2)
+AS
+BEGIN
+    IF @IdMovimento IS NULL
+    BEGIN
+        INSERT INTO Movimento (IdConta, Data, TipoMovimento, Valor) VALUES (@IdConta, @Data, @TipoMovimento, @Valor);
+    END
+    ELSE
+    BEGIN
+        UPDATE Movimento SET IdConta = @IdConta, Data = @Data, TipoMovimento = @TipoMovimento, Valor = @Valor WHERE IdMovimento = @IdMovimento;
+    END
+END
+
+
