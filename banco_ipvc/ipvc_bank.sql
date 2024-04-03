@@ -27,18 +27,24 @@ CREATE TABLE Titular_Conta (
     FOREIGN KEY (IdCliente) REFERENCES Cliente(IdCliente)
 );
 
---  Tabela Movimento (IdConta, IdMovimento, Data, TipoMovimento, Valor)
+--  Tabela Movimento (IdConta, NMovimento, Data, TipoMovimento, Valor)
 CREATE TABLE Movimento (
-    IdMovimento int IDENTITY(1,1) PRIMARY KEY,
-    IdConta int,
+    IdConta int NOT NULL,
+    NMovimento int NOT NULL IDENTITY(1,1),
     Data DATE,
-    TipoMovimento CHAR(1),
-    Valor DECIMAL(10,2),
+    TipoMovimento CHAR(1) CHECK (TipoMovimento IN ('C', 'D')),
+    Valor DECIMAL(15,2),
+    PRIMARY KEY (NMovimento),
     FOREIGN KEY (IdConta) REFERENCES Conta(IdConta)
 );
 
 --? Alterar campo TipoMovimento, pois só pode ser "C" ou "D"
 ALTER TABLE Movimento ADD CONSTRAINT CHK_TipoMovimento CHECK (TipoMovimento IN ('C', 'D'));
+
+--! DROP TABLE Movimento;
+DROP TABLE Movimento;
+
+
 
 -- 1.2 Instruções SQL
 --  1.2.1 Instrução
@@ -160,4 +166,34 @@ BEGIN
     END
 END
 
+--! Delete procedimento MovimentoIU
+
+-- 1.3.2 Procedimento 2
+--      Considere o campo tipo_conta criado na tabela conta que classifica se é uma conta de "risco","estável","potencial investidor"e crie um procedimento cha- mado insertMovimento para inserir um movimento e que classifica a conta (tipo_conta) mediante as seguinte condições:
+--      saldo inferior a 250€ - risco
+--      saldo entre 250€ e 5000€ - estável
+--      saldo superior a 5000€ - potencial investidor
+CREATE PROCEDURE insertMovimento
+    @IdConta int,
+    @Data DATE,
+    @TipoMovimento CHAR(1),
+    @Valor DECIMAL(10,2)
+AS
+BEGIN
+    DECLARE @Saldo DECIMAL(10,2);
+    SELECT @Saldo = Saldo FROM Conta WHERE IdConta = @IdConta;
+    IF @Saldo < 250
+    BEGIN
+        UPDATE Conta SET Tipo_conta = 'R' WHERE IdConta = @IdConta; -- Risco
+    END
+    ELSE IF @Saldo BETWEEN 250 AND 5000
+    BEGIN
+        UPDATE Conta SET Tipo_conta = 'E' WHERE IdConta = @IdConta; -- Estável
+    END
+    ELSE
+    BEGIN
+        UPDATE Conta SET Tipo_conta = 'P' WHERE IdConta = @IdConta; -- Potencial Investidor
+    END
+    INSERT INTO Movimento (IdConta, Data, TipoMovimento, Valor) VALUES (@IdConta, @Data, @TipoMovimento, @Valor);
+END
 
