@@ -197,3 +197,65 @@ BEGIN
     INSERT INTO Movimento (IdConta, Data, TipoMovimento, Valor) VALUES (@IdConta, @Data, @TipoMovimento, @Valor);
 END
 
+-- 1.4 Triggers SQL
+-- 1.4.1 Trigger 1
+--      Crie um procedimento chamado atualizaSaldo para inserir um movimento e que ao inserir um movimento atualiza o saldo mediante as seguintes condições:
+--         - TipoMovimento for "D"(subtrai o valor do movimento ao saldo) 
+--         - TipoMovimento for "C"(adiciona o valor do movimento ao saldo)
+CREATE PROCEDURE atualizaSaldo
+    @IdMovimento int,
+    @IdConta int,
+    @Data DATE,
+    @TipoMovimento CHAR(1),
+    @Valor DECIMAL(10,2)
+AS
+BEGIN
+    DECLARE @Saldo DECIMAL(10,2);
+    SELECT @Saldo = Saldo FROM Conta WHERE IdConta = @IdConta;
+    IF @TipoMovimento = 'D'
+    BEGIN
+        UPDATE Conta SET Saldo = @Saldo - @Valor WHERE IdConta = @IdConta;
+    END
+    ELSE IF @TipoMovimento = 'C'
+    BEGIN
+        UPDATE Conta SET Saldo = @Saldo + @Valor WHERE IdConta = @IdConta;
+    END
+    INSERT INTO Movimento (IdConta, Data, TipoMovimento, Valor) VALUES (@IdConta, @Data, @TipoMovimento, @Valor);
+END
+
+-- 1.4.2 Trigger 2
+--      Crie um trigger que após um movimento inserido consulta o saldo e classifica a conta(tipo_conta) mediante as seguintes condições:
+--         - saldo inferior a 250€ - risco
+--         - saldo entre 250€ e 5000€ - estável
+--         - saldo superior a 5000€ - potencial investidor
+CREATE TRIGGER classificaConta
+ON Movimento
+AFTER INSERT
+AS
+BEGIN
+    DECLARE @IdConta INT;
+    DECLARE @Saldo DECIMAL(10,2);
+    DECLARE @TipoConta CHAR(1);
+    SELECT @IdConta = IdConta, @Saldo = Saldo FROM Conta WHERE IdConta = (SELECT IdConta FROM inserted);
+    IF @Saldo < 250
+    BEGIN
+        SET @TipoConta = 'R'; -- Risco
+    END
+    ELSE IF @Saldo BETWEEN 250 AND 5000
+    BEGIN
+        SET @TipoConta = 'E'; -- Estável
+    END
+    ELSE
+    BEGIN
+        SET @TipoConta = 'P'; -- Potencial Investidor
+    END
+    UPDATE Conta SET Tipo_conta = @TipoConta WHERE IdConta = @IdConta;
+END
+
+-- 1.5 Cursosres SQL
+
+
+
+
+
+
