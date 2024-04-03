@@ -115,7 +115,15 @@ SELECT * FROM Movimento WHERE TipoMovimento = 'C' AND Valor BETWEEN 250 AND 500 
 
 -- 1.2.6 Instrução
 --       Apresente os clientes com movimentos a débito superiores a 1000€.
+-- Método 1 
 SELECT * FROM Movimento WHERE TipoMovimento = 'D' AND Valor > 1000;
+-- Método 2 
+SELECT c.idCliente, SUM(m.Valor) as TotalValor
+FROM Cliente c
+JOIN Titular_Conta tc ON tc.idCliente = c.idCliente
+JOIN Movimento m ON tc.idConta = m.idConta
+WHERE m.TipoMovimento = 'D' AND m.Valor > 1000
+GROUP BY c.idCliente;
 
 -- 1.2.7 Instrução
 --     O banco precisa saber quais as contas com mais de 5 movimentos de crédito, na listagem apresente com as colunas NumeroDeMovimentos, totalMovimentos, idConta, nome, tipo de cliente, estado da conta e saldo.
@@ -123,18 +131,23 @@ SELECT * FROM Movimento WHERE TipoMovimento = 'D' AND Valor > 1000;
 --      - NumeroDeMovimentos são o total de movimento de crédito
 --      - TotaMovimentos é o somatório dos movimentos de crédito
 --      - Saldo é o saldo atual da conta
-CREATE VIEW movimentosSuperior5 AS
-SELECT COUNT(m.IdMovimento) AS NumeroDeMovimentos, SUM(m.Valor) AS TotalMovimentos, co.IdConta, cl.Nome, cl.Tipo, co.Tipo_conta, co.Saldo 
+CREATE VIEW movimentosSuperior5 
+AS
+SELECT COUNT(m.MovimentoID) AS NumeroDeMovimentos, SUM(m.Valor) AS TotalMovimentos, co.IdConta, cl.Nome, cl.Tipo, co.Tipo_conta, co.Saldo 
 FROM Movimento m 
 JOIN Conta co ON m.IdConta = co.IdConta 
 JOIN Titular_Conta tc ON co.IdConta = tc.IdConta
 JOIN Cliente cl ON tc.IdCliente = cl.IdCliente
 WHERE m.TipoMovimento = 'C' 
 GROUP BY co.IdConta, cl.Nome, cl.Tipo, co.Tipo_conta, co.Saldo
-HAVING COUNT(m.IdMovimento) > 5;
+HAVING COUNT(m.MovimentoID) > 5;
+
+--! DELETE VIEW movimentosSuperior5
+DROP VIEW movimentosSuperior5;
 
 -- 1.2.8 Instrução
 -- Crie uma vista chamada resumoContas que retorna o número de contas a prazo, certificados e normais e o somatório do saldo e o saldo mais alto
+-- Método 1 (mais eficiente)
 CREATE VIEW resumoContas AS
 SELECT COUNT(IdConta) AS NumeroDeContas, 
     SUM(CASE WHEN Definicao_conta = 'P' THEN 1 ELSE 0 END) AS ContasPrazo, 
@@ -143,9 +156,18 @@ SELECT COUNT(IdConta) AS NumeroDeContas,
     SUM(Saldo) AS SaldoTotal, 
     MAX(Saldo) AS SaldoMaisAlto
 FROM Conta;
+-- Método 2 (muitos selects)
+CREATE VIEW resumoContas
+AS
+SELECT
+(SELECT COUNT(*) FROM Conta WHERE Definicao_conta = 'P') AS ContasPrazo,
+(SELECT COUNT(*) FROM Conta WHERE Definicao_conta = 'C') AS ContasCertificados,
+(SELECT COUNT(*) FROM Conta WHERE Definicao_conta = 'N') AS ContasNormais,
+SUM(Saldo) AS SaldoTotal,
+MAX(Saldo) AS SaldoMaisAlto
+FROM Conta;
 
 -- 1.3 Procedimentos SQL
-
 -- 1.3.1 Procedimento 1
 --      Crie um procedimento para inserir, atualizar ou remover um movimento
 CREATE PROCEDURE MovimentoIU
@@ -253,6 +275,36 @@ BEGIN
 END
 
 -- 1.5 Cursosres SQL
+-- 1.5.1 Cursor 1
+--      Crie um cursor que apresente o seguinte:
+--          Nome | Tipo cliente | N de contas | Saldo Total Marco | Individual | 4 | 12899
+--          XPTO | Empresa | 1 | 2800
+--          ...
+DECLARE @Nome VARCHAR(255), @TipoCliente CHAR(1), @NContas INT, @SaldoTotal DECIMAL(15, 2);
+
+DECLARE cursorClientes CURSOR FOR
+SELECT c.Nome, c.tipo, COUNT(co.IdConta) AS NContas, SUM(co.Saldo) AS SaldoTotal
+FROM Cliente c
+LEFT JOIN Titular_Conta tc ON c.IdCliente = tc.IdCliente
+LEFT JOIN Conta co ON tc.IdConta = co.IdConta
+GROUP BY c.Nome, c.tipo;
+
+OPEN cursorClientes;
+
+FETCH NEXT FROM cursorClientes INTO @Nome, @TipoCliente, @NContas, @SaldoTotal;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    
+    PRINT 'Nome: ' + '|' + 'Tipo Cliente: ' + '|' + 'N de contas: ' + '|' + 'Saldo Total'
+    PRINT @Nome + '|' + @TipoCliente + '|' + CAST(@NContas AS VARCHAR(10)) + '|' + CAST(@SaldoTotal AS VARCHAR(15));
+
+    
+    FETCH NEXT FROM cursorClientes INTO @Nome, @TipoCliente, @NContas, @SaldoTotal;
+END;
+
+CLOSE cursorClientes;
+DEALLOCATE cursorClientes;
 
 
 
