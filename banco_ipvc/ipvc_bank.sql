@@ -170,25 +170,37 @@ FROM Conta;
 -- 1.3 Procedimentos SQL
 -- 1.3.1 Procedimento 1
 --      Crie um procedimento para inserir, atualizar ou remover um movimento
-CREATE PROCEDURE MovimentoIU
-    @IdMovimento int = NULL,
-    @IdConta int,
+CREATE or ALTER PROCEDURE GerirMovimento
+    @IdConta INT,
+    @NMovimento INT,
     @Data DATE,
     @TipoMovimento CHAR(1),
-    @Valor DECIMAL(10,2)
+    @Valor DECIMAL(15,2),
+    @Acao VARCHAR(10)
 AS
 BEGIN
-    IF @IdMovimento IS NULL
+    IF @Acao = 'Inserir'
     BEGIN
-        INSERT INTO Movimento (IdConta, Data, TipoMovimento, Valor) VALUES (@IdConta, @Data, @TipoMovimento, @Valor);
+        INSERT INTO Movimento (IdConta, Data, TipoMovimento, Valor)
+        VALUES (@IdConta,@Data,@TipoMovimento,@Valor);
     END
-    ELSE
+    ELSE IF @Acao = 'Atualizar'
     BEGIN
-        UPDATE Movimento SET IdConta = @IdConta, Data = @Data, TipoMovimento = @TipoMovimento, Valor = @Valor WHERE IdMovimento = @IdMovimento;
+        UPDATE Movimento
+        SET Data = @Data,
+            TipoMovimento = @TipoMovimento,
+            Valor = @Valor
+        WHERE IdConta = @IdConta and NMovimento = @NMovimento;
     END
-END
+    ELSE IF @Acao = 'Remover'
+    BEGIN
+        DELETE FROM Movimento
+        WHERE IdConta = @IdConta AND NMovimento = @NMovimento;
+    END
+END;
 
 --! Delete procedimento MovimentoIU
+DROP PROCEDURE GerirMovimento;
 
 -- 1.3.2 Procedimento 2
 --      Considere o campo tipo_conta criado na tabela conta que classifica se é uma conta de "risco","estável","potencial investidor"e crie um procedimento cha- mado insertMovimento para inserir um movimento e que classifica a conta (tipo_conta) mediante as seguinte condições:
@@ -202,6 +214,7 @@ CREATE PROCEDURE insertMovimento
     @Valor DECIMAL(10,2)
 AS
 BEGIN
+    INSERT INTO Movimento (IdConta, Data, TipoMovimento, Valor) VALUES (@IdConta, @Data, @TipoMovimento, @Valor);
     DECLARE @Saldo DECIMAL(10,2);
     SELECT @Saldo = Saldo FROM Conta WHERE IdConta = @IdConta;
     IF @Saldo < 250
@@ -216,7 +229,7 @@ BEGIN
     BEGIN
         UPDATE Conta SET Tipo_conta = 'P' WHERE IdConta = @IdConta; -- Potencial Investidor
     END
-    INSERT INTO Movimento (IdConta, Data, TipoMovimento, Valor) VALUES (@IdConta, @Data, @TipoMovimento, @Valor);
+
 END
 
 -- 1.4 Triggers SQL
@@ -258,7 +271,7 @@ BEGIN
     DECLARE @IdConta INT;
     DECLARE @Saldo DECIMAL(10,2);
     DECLARE @TipoConta CHAR(1);
-    SELECT @IdConta = IdConta, @Saldo = Saldo FROM Conta WHERE IdConta = (SELECT IdConta FROM inserted);
+    SELECT @IdConta = IdConta, @Saldo = Saldo FROM Conta WHERE IdConta = (SELECT IdConta FROM inserted); -- This
     IF @Saldo < 250
     BEGIN
         SET @TipoConta = 'R'; -- Risco
@@ -293,6 +306,7 @@ OPEN cursorClientes;
 
 FETCH NEXT FROM cursorClientes INTO @Nome, @TipoCliente, @NContas, @SaldoTotal;
 
+
 WHILE @@FETCH_STATUS = 0
 BEGIN
     
@@ -305,9 +319,3 @@ END;
 
 CLOSE cursorClientes;
 DEALLOCATE cursorClientes;
-
-
-
-
-
-
