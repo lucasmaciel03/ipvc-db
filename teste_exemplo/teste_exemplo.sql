@@ -122,24 +122,20 @@ HAVING P.stock < 5
 -- Call the view 
 SELECT * FROM lista_produtos_vendidos ORDER BY nome_produto DESC
 
--- Drop View lista_produtos_vendidos
-DROP VIEW lista_produtos_vendidos2
-
 -- 4- Crie um trigger “atualiza_stock” que ao inserir ou remover um movimento de produto, valida o stock do produto ao inserir e caso o stock não seja suficiente deverá retornar um mensagem/alerta indicando o stock existente senão atualiza o stock retirando as quantidades inseridas no movimento. No caso de remoção deverá repor o stock das quantidades do movimento.
 CREATE TRIGGER atualiza_stock
 ON MOVIMENTO_PRODUTO
 AFTER INSERT, DELETE
 AS
 BEGIN
-    SET NOCOUNT ON; -- This is to prevent the message "N rows affected" from being displayed
+    DECLARE @stock INT, @need INT, @id_produto INT, @quantity INT;
 
     -- Handling INSERT Operations
     IF EXISTS (SELECT * FROM inserted) -- Check if there are any rows inserted
     BEGIN
-        DECLARE @stock INT, @need INT, @id_produto INT;
 
         -- Loop through all inserted records
-        SELECT @id_produto = id_produto, @need = SUM(quantidade) FROM inserted GROUP BY id_produto;
+        SELECT @id_produto = id_produto, @need = quantidade FROM inserted;
 
         -- Check current stock
         SELECT @stock = stock FROM PRODUTO WHERE id_produto = @id_produto;
@@ -162,10 +158,8 @@ BEGIN
     -- Handling DELETE Operations
     IF EXISTS (SELECT * FROM deleted) 
     BEGIN
-        DECLARE @quantity INT;
-
         -- Loop through all deleted records
-        SELECT @id_produto = id_produto, @quantity = SUM(quantidade) FROM deleted GROUP BY id_produto;
+        SELECT @id_produto = id_produto, @quantity = quantidade FROM deleted GROUP BY id_produto;
 
         -- Update the stock by adding back the quantity
         UPDATE PRODUTO
@@ -175,10 +169,10 @@ BEGIN
 END;
 
 -- Execução do Trigger (INSERT)
-INSERT INTO MOVIMENTO_PRODUTO VALUES (1,8,2)
+INSERT INTO MOVIMENTO_PRODUTO VALUES (1,8,4)
 
 -- Execução do Trigger (DELETE)
-DELETE FROM MOVIMENTO_PRODUTO WHERE id_produto = 1 AND quantidade = 4
+DELETE FROM MOVIMENTO_PRODUTO WHERE id_produto = 1 AND id_movimento = 1
 
 -- Delete trigger atualiza_stock
 DROP TRIGGER atualiza_stock
@@ -189,7 +183,6 @@ ON MOVIMENTO
 AFTER UPDATE
 AS
 BEGIN
-    SET NOCOUNT ON;
 
     -- Varaible to hold total paid amount and quantity for a scecific product
     DECLARE @totalPaid FLOAT, @totalQuantity INT, @clientId INT;
@@ -208,10 +201,11 @@ BEGIN
     -- Update discount based on the total amount
     IF @totalPaid > 6000
     BEGIN
+    -- UPDATE CLIENTES SET desconto = 20 WHERE id_cliente = @clientId AND (desconto IS NULL OR desconto < 20); 
         IF @totalQuantity > 1000
         BEGIN
             -- Update to 25% discount if total quantity of the specific product exceeds 1000
-            UPDATE CLIENTES SET desconto = 20 WHERE id_cliente = @clientId AND (desconto IS NULL OR desconto < 20);
+            UPDATE CLIENTES SET desconto = 25 WHERE id_cliente = @clientId AND (desconto IS NULL OR desconto = 20);
         END
     END
     ELSE IF @totalPaid > 1200
@@ -236,7 +230,7 @@ CREATE PROCEDURE aplicaDesconto_set
 )
 AS
 BEGIN
-    SET NOCOUNT ON;
+    -- SET NOCOUNT ON;
 
     -- Update the discount for clients with total accumulated above the limit
     UPDATE CLIENTES
@@ -253,8 +247,8 @@ BEGIN
     SELECT
         CLIENTES.nome AS NomeDoCliente,
         COUNT(MOVIMENTO.id_movimento)  AS NumeroDeMovimentos,
-        sum(MOVIMENTO.total_acumulado) AS TotalAcumulado
-    FROM CLIENTES
+        SUM(MOVIMENTO.total_acumulado) AS TotalAcumulado
+    FROM CLIENTES 
     JOIN MOVIMENTO ON CLIENTES.id_cliente = MOVIMENTO.id_cliente
     WHERE CLIENTES.desconto = @desconto
     GROUP BY CLIENTES.nome
@@ -265,3 +259,25 @@ EXEC dbo.aplicaDesconto_set @desconto = 15.0, @limite = 5000;
 
 -- Delete the procedure
 DROP PROCEDURE aplicaDescotno_set
+
+-- Cria um exercício simples para criar um cursor de SELECT
+-- 6- Crie um cursor que percorra todos os clientes e apresente o nome do cliente e o total acumulado de todos os movimentos realizados pelo cliente.
+DECLARE @nome VARCHAR(100), @total_acumulado FLOAT;
+DECLARE total_acumulado_cursor CURSOR FOR
+    SELECT CLIENTES.nome, SUM(MOVIMENTO.total_acumulado)
+    FROM CLIENTES
+    JOIN MOVIMENTO ON CLIENTES.id_cliente = MOVIMENTO.id_cliente
+    GROUP BY CLIENTES.nome;
+OPEN total_acumulado_cursor;
+FETCH NEXT FROM total_acumulado_cursor INTO @nome, @total_acumulado;
+PRINT 'NOME DO CLIENTE | TOTAL ACUMULADO';
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    PRINT @nome + ' | ' + CAST(@total_acumulado AS VARCHAR);
+    FETCH NEXT FROM total_acumulado_cursor INTO @nome, @total_acumulado;
+END
+CLOSE total_acumulado_cursor;
+DEALLOCATE total_acumulado_cursor;
+
+-- Exemplo de execução do cursor
+EXEC total_acumulado_cursor
